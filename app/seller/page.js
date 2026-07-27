@@ -328,22 +328,34 @@ export default function SellerPage() {
             </div>
           ) : (
             <div className="space-y-4 max-h-[550px] overflow-y-auto pr-2">
-              {myListings.map((item) => (
-                <div 
-                  key={item.i_id} 
-                  className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4 flex justify-between items-center"
-                >
-                  <div className="flex items-center gap-4">
-                    {item.image_url && (
-                      <img src={item.image_url} alt={item.title} className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
-                    )}
-                    <div>
-                      <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{item.title}</h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Start: <span className="font-bold text-lime-600 dark:text-lime-400">Rs. {item.starting_price.toLocaleString()}</span>
-                      </p>
+              {myListings.map((item) => {
+                let displayTitle = (item.title || '').trim();
+                let displayImg = item.image_url || null;
+
+                if (displayTitle.includes('[img:')) {
+                  const match = displayTitle.match(/^(.*?)\s*\[img:(.*?)\]$/s);
+                  if (match) {
+                    displayTitle = match[1].trim();
+                    if (!displayImg) displayImg = match[2].trim();
+                  }
+                }
+
+                return (
+                  <div 
+                    key={item.i_id} 
+                    className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4 flex justify-between items-center"
+                  >
+                    <div className="flex items-center gap-4">
+                      {displayImg && (
+                        <img src={displayImg} alt={displayTitle} className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
+                      )}
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{displayTitle}</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Start: <span className="font-bold text-lime-600 dark:text-lime-400">Rs. {item.starting_price.toLocaleString()}</span>
+                        </p>
+                      </div>
                     </div>
-                  </div>
                   <div className="text-right">
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase ${
                       item.status === 'active' 
@@ -354,8 +366,9 @@ export default function SellerPage() {
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
           )}
         </div>
 

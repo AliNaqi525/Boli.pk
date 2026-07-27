@@ -68,8 +68,23 @@ export async function GET(request) {
             }
           }
 
+          let cleanTitle = (item.title || '').trim();
+          let imageUrl = item.image_url || null;
+
+          if (cleanTitle.includes('[img:')) {
+            const match = cleanTitle.match(/^(.*?)\s*\[img:(.*?)\]$/s);
+            if (match) {
+              cleanTitle = match[1].trim();
+              if (!imageUrl) {
+                imageUrl = match[2].trim();
+              }
+            }
+          }
+
           wonItemsMap.set(item.i_id, {
             ...item,
+            title: cleanTitle,
+            image_url: imageUrl,
             winning_bid: Number(highestBid.bid_amount),
             escrow_status: bid.escrow_status,
             seller_phone: sellerPhone,

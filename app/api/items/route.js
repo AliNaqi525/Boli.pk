@@ -7,26 +7,40 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Helper to assign default images if image_url is null or not in DB schema
-function getFallbackImage(title, imageUrl) {
-  if (imageUrl && imageUrl.trim()) return imageUrl.trim();
-  const lowerTitle = (title || '').toLowerCase();
-  if (lowerTitle.includes('watch') || lowerTitle.includes('time') || lowerTitle.includes('seiko') || lowerTitle.includes('rolex')) {
-    return '/images/vintage_watch.png';
+// Helper to parse title and embedded image_url tag
+function parseItemTitleAndImage(rawTitle, dbImageUrl) {
+  let title = (rawTitle || '').trim();
+  let imageUrl = dbImageUrl || null;
+
+  if (title.includes('[img:')) {
+    const match = title.match(/^(.*?)\s*\[img:(.*?)\]$/s);
+    if (match) {
+      title = match[1].trim();
+      if (!imageUrl) {
+        imageUrl = match[2].trim();
+      }
+    }
   }
-  if (lowerTitle.includes('phone') || lowerTitle.includes('iphone') || lowerTitle.includes('mobile') || lowerTitle.includes('samsung')) {
-    return '/images/modern_smartphone.png';
+
+  if (!imageUrl) {
+    const lowerTitle = title.toLowerCase();
+    if (lowerTitle.includes('watch') || lowerTitle.includes('time') || lowerTitle.includes('seiko') || lowerTitle.includes('rolex')) {
+      imageUrl = '/images/vintage_watch.png';
+    } else if (lowerTitle.includes('phone') || lowerTitle.includes('iphone') || lowerTitle.includes('mobile') || lowerTitle.includes('samsung')) {
+      imageUrl = '/images/modern_smartphone.png';
+    } else if (lowerTitle.includes('headphone') || lowerTitle.includes('audio') || lowerTitle.includes('sound') || lowerTitle.includes('airpod')) {
+      imageUrl = '/images/premium_headphones.png';
+    } else {
+      imageUrl = '/images/vintage_watch.png';
+    }
   }
-  if (lowerTitle.includes('headphone') || lowerTitle.includes('audio') || lowerTitle.includes('sound') || lowerTitle.includes('airpod')) {
-    return '/images/premium_headphones.png';
-  }
-  return '/images/vintage_watch.png';
+
+  return { title, imageUrl };
 }
 
 // GET: Retrieve all active auction items along with their current highest bid
 export async function GET(request) {
   try {
-    // Fetch items and their active locked bids
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('items')
       .select('*, bids(bid_amount, escrow_status)')
@@ -34,19 +48,19 @@ export async function GET(request) {
 
     if (itemsError) throw itemsError;
 
-    // Format the items to return the current highest bid value directly
     const formattedItems = items.map(item => {
       const activeBid = item.bids && item.bids.length > 0 ? item.bids[0] : null;
       const currentHighestBid = activeBid ? Number(activeBid.bid_amount) : Number(item.starting_price);
+      const { title, imageUrl } = parseItemTitleAndImage(item.title, item.image_url);
 
       return {
         i_id: item.i_id,
         seller_id: item.seller_id,
-        title: item.title,
+        title: title,
         starting_price: Number(item.starting_price),
         auction_end_time: item.auction_end_time,
         status: item.status,
-        image_url: getFallbackImage(item.title, item.image_url),
+        image_url: imageUrl,
         current_highest_bid: currentHighestBid,
         has_bids: !!activeBid
       };
@@ -107,10 +121,15 @@ export async function POST(request) {
       if (insertUserError) throw insertUserError;
     }
 
+    // Embed image_url into title string if DB column is absent
+    const titleWithImageTag = imageUrl && imageUrl.trim() 
+      ? `${title.trim()} [img:${imageUrl.trim()}]`
+      : title.trim();
+
     // 2. Insert item into items table
     let itemData = {
       seller_id: sellerId,
-      title: title,
+      title: titleWithImageTag,
       starting_price: price,
       auction_end_time: endTime.toISOString(),
       status: 'active'
@@ -127,7 +146,7 @@ export async function POST(request) {
       .select()
       .single();
 
-    // If Supabase throws schema cache error for missing image_url column, retry without image_url
+    // Fallback if image_url column doesn't exist
     if (itemInsertError && (itemInsertError.message?.includes('image_url') || itemInsertError.code === 'PGRST204')) {
       delete itemData.image_url;
       const { data: retryData, error: retryError } = await supabaseAdmin
@@ -138,12 +157,15 @@ export async function POST(request) {
 
       if (retryError) throw retryError;
       newItem = retryData;
-      newItem.image_url = getFallbackImage(title, imageUrl);
     } else if (itemInsertError) {
       throw itemInsertError;
     } else {
       newItem = insertedData;
     }
+
+    const { title: cleanTitle, imageUrl: finalImg } = parseItemTitleAndImage(newItem.title, newItem.image_url);
+    newItem.title = cleanTitle;
+    newItem.image_url = finalImg;
 
     return NextResponse.json({ 
       success: true, 

@@ -165,7 +165,13 @@ export default function WonAuctionsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {wonItems.map((item) => {
-              const itemImg = item.image_url || (item.title.toLowerCase().includes('phone') ? '/images/modern_smartphone.png' : item.title.toLowerCase().includes('headphone') ? '/images/premium_headphones.png' : '/images/vintage_watch.png');
+              const itemImg = item.image_url || (
+                item.title.toLowerCase().includes('phone') || item.title.toLowerCase().includes('mobile') || item.title.toLowerCase().includes('iphone')
+                  ? '/images/modern_smartphone.png' 
+                  : item.title.toLowerCase().includes('headphone') || item.title.toLowerCase().includes('audio') || item.title.toLowerCase().includes('speaker')
+                    ? '/images/premium_headphones.png' 
+                    : '/images/vintage_watch.png'
+              );
               const isSettled = item.status === 'completed' || item.status === 'settled' || item.escrow_status === 'released';
               const isPhoneRevealed = revealedPhones[item.i_id];
 
