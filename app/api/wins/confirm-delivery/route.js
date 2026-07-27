@@ -48,6 +48,8 @@ export async function POST(request) {
     }
 
     const winningAmount = Number(lockedBid.bid_amount);
+    const adminFee = Math.round(winningAmount * 0.04 * 100) / 100;
+    const sellerPayout = Math.round((winningAmount - adminFee) * 100) / 100;
 
     // 3. Update Buyer's Wallet: deduct total balance and locked_funds by winningAmount
     const { data: buyerWallet, error: buyerWalletError } = await supabaseAdmin
@@ -70,7 +72,7 @@ export async function POST(request) {
 
     if (buyerUpdateError) throw buyerUpdateError;
 
-    // 4. Update Seller's Wallet: credit seller balance by winningAmount
+    // 4. Update Seller's Wallet: credit seller balance by sellerPayout (96%)
     let { data: sellerWallet } = await supabaseAdmin
       .from('wallets')
       .select('balance')
@@ -80,13 +82,13 @@ export async function POST(request) {
     if (!sellerWallet) {
       const { data: createdSellerWallet, error: createError } = await supabaseAdmin
         .from('wallets')
-        .insert({ user_id: item.seller_id, balance: winningAmount, locked_funds: 0 })
+        .insert({ user_id: item.seller_id, balance: sellerPayout, locked_funds: 0 })
         .select('balance')
         .single();
       if (createError) throw createError;
       sellerWallet = createdSellerWallet;
     } else {
-      const newSellerBalance = Number(sellerWallet.balance) + winningAmount;
+      const newSellerBalance = Number(sellerWallet.balance) + sellerPayout;
       const { error: sellerUpdateError } = await supabaseAdmin
         .from('wallets')
         .update({ balance: newSellerBalance })
@@ -94,7 +96,36 @@ export async function POST(request) {
       if (sellerUpdateError) throw sellerUpdateError;
     }
 
-    // 5. Update Bid Escrow Status to 'released'
+    // 5. Update Admin Wallet: credit admin wallet balance by adminFee (4%)
+    const adminPhones = ['+920000000000', '920000000000', '+923334339291', '923334339291'];
+    let { data: adminUsers } = await supabaseAdmin
+      .from('users')
+      .select('u_id')
+      .in('phone_number', adminPhones)
+      .limit(1);
+
+    let adminUserId = adminUsers && adminUsers.length > 0 ? adminUsers[0].u_id : null;
+
+    if (adminUserId && adminFee > 0) {
+      let { data: adminWallet } = await supabaseAdmin
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', adminUserId)
+        .maybeSingle();
+
+      if (!adminWallet) {
+        await supabaseAdmin
+          .from('wallets')
+          .insert({ user_id: adminUserId, balance: adminFee, locked_funds: 0 });
+      } else {
+        await supabaseAdmin
+          .from('wallets')
+          .update({ balance: Number(adminWallet.balance) + adminFee })
+          .eq('user_id', adminUserId);
+      }
+    }
+
+    // 6. Update Bid Escrow Status to 'released'
     const { error: bidUpdateError } = await supabaseAdmin
       .from('bids')
       .update({ escrow_status: 'released' })
@@ -102,7 +133,7 @@ export async function POST(request) {
 
     if (bidUpdateError) throw bidUpdateError;
 
-    // 6. Update Item Status to 'completed'
+    // 7. Update Item Status to 'completed'
     const { error: itemUpdateError } = await supabaseAdmin
       .from('items')
       .update({ status: 'completed' })
@@ -112,7 +143,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: `Delivery confirmed! Escrow funds of Rs. ${winningAmount.toLocaleString()} have been released to the seller.`
+      message: `Delivery confirmed! Escrow funds released: Rs. ${sellerPayout.toLocaleString()} transferred to seller (96%) and Rs. ${adminFee.toLocaleString()} (4%) platform fee added to admin wallet.`
     });
 
   } catch (error) {

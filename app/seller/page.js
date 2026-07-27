@@ -145,7 +145,16 @@ export default function SellerPage() {
         <div className="w-full lg:w-1/3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 relative overflow-hidden h-fit shadow-xl">
           
           <h2 className="text-2xl font-bold mb-1 tracking-tight text-slate-900 dark:text-slate-100">Upload Product</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-xs mb-6 leading-relaxed font-medium">List a new item for real-time bidding.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-xs mb-4 leading-relaxed font-medium">List a new item for real-time bidding.</p>
+          
+          {/* 4% Platform Fee Notice */}
+          <div className="mb-5 p-3 rounded-xl bg-lime-500/10 border border-lime-500/30 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-start gap-2">
+            <span className="text-base">🏷️</span>
+            <div>
+              <span className="font-bold text-lime-700 dark:text-lime-400">4% Platform Fee: </span>
+              Upon successful delivery, Boli.pk deducts a 4% service fee. You will receive <span className="font-bold">96%</span> of the final winning bid in your wallet.
+            </div>
+          </div>
           
           <form onSubmit={handleUpload} className="space-y-4">
             <div>
@@ -196,17 +205,43 @@ export default function SellerPage() {
 
             <div>
               <label htmlFor="imageUrl" className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Product Image URL (Optional)
+                Product Image (Upload File or Paste Link)
               </label>
+              
+              {/* File Upload Button */}
+              <div className="mb-2">
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 5 * 1024 * 1024) {
+                        setMessage({ text: 'Image file size should be under 5MB.', type: 'error' });
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setImageUrl(reader.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-lime-500/20 file:text-lime-800 dark:file:text-lime-400 hover:file:bg-lime-500/30 cursor-pointer"
+                />
+              </div>
+
+              {/* Or URL input */}
               <input 
                 id="imageUrl"
-                type="url" 
+                type="text" 
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/item.jpg or pick preset below"
+                placeholder="Or paste image URL (e.g. https://...)"
                 className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-3 rounded-xl text-slate-900 dark:text-slate-100 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-lime-500 transition-all placeholder:text-slate-400"
               />
-              <div className="flex gap-2 mt-2">
+
+              <div className="flex gap-2 mt-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setImageUrl('/images/vintage_watch.png')}
@@ -229,6 +264,23 @@ export default function SellerPage() {
                   🎧 Audio Preset
                 </button>
               </div>
+
+              {/* Live Preview */}
+              {imageUrl && (
+                <div className="mt-3 p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50 flex items-center gap-3">
+                  <img src={imageUrl} alt="Image Preview" className="w-12 h-12 object-cover rounded-lg border border-slate-300 dark:border-slate-600" />
+                  <div className="text-xs">
+                    <p className="font-bold text-slate-800 dark:text-slate-200">Image Preview Ready</p>
+                    <button 
+                      type="button" 
+                      onClick={() => setImageUrl('')}
+                      className="text-[10px] font-bold text-red-500 hover:underline"
+                    >
+                      Remove image
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button 
