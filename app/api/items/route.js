@@ -7,6 +7,22 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Helper to assign default images if image_url is null or not in DB schema
+function getFallbackImage(title, imageUrl) {
+  if (imageUrl && imageUrl.trim()) return imageUrl.trim();
+  const lowerTitle = (title || '').toLowerCase();
+  if (lowerTitle.includes('watch') || lowerTitle.includes('time') || lowerTitle.includes('seiko') || lowerTitle.includes('rolex')) {
+    return '/images/vintage_watch.png';
+  }
+  if (lowerTitle.includes('phone') || lowerTitle.includes('iphone') || lowerTitle.includes('mobile') || lowerTitle.includes('samsung')) {
+    return '/images/modern_smartphone.png';
+  }
+  if (lowerTitle.includes('headphone') || lowerTitle.includes('audio') || lowerTitle.includes('sound') || lowerTitle.includes('airpod')) {
+    return '/images/premium_headphones.png';
+  }
+  return '/images/vintage_watch.png';
+}
+
 // GET: Retrieve all active auction items along with their current highest bid
 export async function GET(request) {
   try {
@@ -20,10 +36,8 @@ export async function GET(request) {
 
     // Format the items to return the current highest bid value directly
     const formattedItems = items.map(item => {
-      // Since at most one bid can be locked per item, bids is either empty or contains 1 item
       const activeBid = item.bids && item.bids.length > 0 ? item.bids[0] : null;
       const currentHighestBid = activeBid ? Number(activeBid.bid_amount) : Number(item.starting_price);
-      const bidsCount = item.bids ? item.bids.length : 0; // In this schema, we just show if it has a bid
 
       return {
         i_id: item.i_id,
@@ -32,6 +46,7 @@ export async function GET(request) {
         starting_price: Number(item.starting_price),
         auction_end_time: item.auction_end_time,
         status: item.status,
+        image_url: getFallbackImage(item.title, item.image_url),
         current_highest_bid: currentHighestBid,
         has_bids: !!activeBid
       };
@@ -59,7 +74,6 @@ export async function POST(request) {
     }
 
     const endTime = new Date(auctionEndTime);
-    // Allow slight tolerance (23.5 hours) for clock skew/latency
     const minAllowedTime = new Date(Date.now() + 23.5 * 60 * 60 * 1000);
 
     if (isNaN(endTime.getTime()) || endTime < minAllowedTime) {
@@ -94,7 +108,7 @@ export async function POST(request) {
     }
 
     // 2. Insert item into items table
-    const itemData = {
+    let itemData = {
       seller_id: sellerId,
       title: title,
       starting_price: price,
@@ -106,13 +120,30 @@ export async function POST(request) {
       itemData.image_url = imageUrl;
     }
 
-    const { data: newItem, error: itemInsertError } = await supabaseAdmin
+    let newItem = null;
+    const { data: insertedData, error: itemInsertError } = await supabaseAdmin
       .from('items')
       .insert(itemData)
       .select()
       .single();
 
-    if (itemInsertError) throw itemInsertError;
+    // If Supabase throws schema cache error for missing image_url column, retry without image_url
+    if (itemInsertError && (itemInsertError.message?.includes('image_url') || itemInsertError.code === 'PGRST204')) {
+      delete itemData.image_url;
+      const { data: retryData, error: retryError } = await supabaseAdmin
+        .from('items')
+        .insert(itemData)
+        .select()
+        .single();
+
+      if (retryError) throw retryError;
+      newItem = retryData;
+      newItem.image_url = getFallbackImage(title, imageUrl);
+    } else if (itemInsertError) {
+      throw itemInsertError;
+    } else {
+      newItem = insertedData;
+    }
 
     return NextResponse.json({ 
       success: true, 
