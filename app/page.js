@@ -132,7 +132,12 @@ export default function Login() {
       <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-8 rounded-3xl border border-slate-300 dark:border-slate-800 shadow-2xl w-full max-w-md relative z-10">
         
         {/* Brand Header */}
-        <div className="text-center mb-6">
+        <div className="flex flex-col items-center justify-center mb-6">
+          <img 
+            src="/logo.png" 
+            alt="Boli.pk Logo" 
+            className="h-16 w-16 object-contain mb-3 rounded-2xl shadow-md hover:scale-105 transition-transform"
+          />
           <h1 className="text-3xl font-bold tracking-tight text-lime-600 dark:text-lime-400 mb-1">
             Boli.pk
           </h1>

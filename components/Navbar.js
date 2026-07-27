@@ -115,12 +115,19 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo Section */}
           <div className="flex items-center gap-8">
-            <span 
+            <div 
               onClick={() => router.push(role === 'admin' ? '/admin' : '/auction')} 
-              className="text-2xl font-bold tracking-tight text-lime-600 dark:text-lime-400 cursor-pointer hover:opacity-90 transition-opacity"
+              className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition-opacity"
             >
-              Boli.pk
-            </span>
+              <img 
+                src="/logo.png" 
+                alt="Boli.pk Logo" 
+                className="h-9 w-9 object-contain rounded-lg shadow-sm"
+              />
+              <span className="text-2xl font-bold tracking-tight text-lime-600 dark:text-lime-400">
+                Boli.pk
+              </span>
+            </div>
             
             {/* Nav Links */}
             <div className="hidden md:flex space-x-1">

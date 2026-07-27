@@ -12,6 +12,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Boli.pk - Secure Real-time Escrow Auctions",
   description: "Real-time bidding engine protected by token-based escrow transaction ledger.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 const themeScript = `
